@@ -15,14 +15,14 @@ The fast node:
 - batches all mask frames on the active ComfyUI device;
 - replaces repeated square dilation/erosion with separable max-pooling when
   `tapered_corners=false`;
-- reproduces Pillow's three-box Gaussian approximation on-device without
-  per-frame PIL conversions or CPU round-trips;
+- reproduces Pillow's fixed-point three-box Gaussian blur exactly while
+  processing the mask batch with vectorized tensor operations;
 - preserves the original SciPy `fill_holes` behavior as a compatibility path.
 
-The primary deployment target is ComfyUI on Windows with an NVIDIA CUDA GPU.
-Windows CI verifies the platform-neutral algorithm code; final throughput should
-be measured in the target workflow because GPU model, frame batch size, and the
-`fill_holes` setting materially affect runtime.
+The primary deployment target is CPU-only ComfyUI on Windows. The same node can
+also use CUDA when available. Windows CI verifies pixel-exact blur compatibility;
+final throughput should be measured in the target workflow because CPU model,
+frame batch size, mask resolution, and the `fill_holes` setting affect runtime.
 
 Install this fork **instead of**, not alongside, the upstream KJNodes folder because
 both packages contain the same original node identifiers:

@@ -64,8 +64,26 @@ class FastMaskTests(unittest.TestCase):
                         torch.from_numpy(np.asarray(blurred).copy()).float() / 255
                     )
                 expected = torch.stack(expected_frames)
-                max_error = (actual - expected).abs().max().item()
-                self.assertLessEqual(max_error, 2 / 255)
+                self.assertTrue(torch.equal(actual, expected))
+
+    def test_blur_matches_original_pillow_path_for_soft_masks(self):
+        torch.manual_seed(23)
+        sample = torch.rand(2, 127, 193)
+
+        for radius in (0.1, 7.5, 32, 64):
+            with self.subTest(radius=radius):
+                actual = gaussian_blur_like_pillow(sample, radius)
+                expected_frames = []
+                for frame in sample:
+                    image = Image.fromarray(
+                        np.clip(frame.numpy() * 255, 0, 255).astype(np.uint8)
+                    )
+                    blurred = image.filter(ImageFilter.GaussianBlur(radius))
+                    expected_frames.append(
+                        torch.from_numpy(np.asarray(blurred).copy()).float() / 255
+                    )
+                expected = torch.stack(expected_frames)
+                self.assertTrue(torch.equal(actual, expected))
 
 
 if __name__ == "__main__":

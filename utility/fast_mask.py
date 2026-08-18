@@ -78,7 +78,7 @@ def _pillow_gaussian_box_radius(radius, passes=3):
 
 
 def _horizontal_extended_box_blur(image, radius):
-    """GPU-friendly equivalent of Pillow's fractional horizontal box blur."""
+    """Exact uint8 equivalent of Pillow's fractional horizontal box blur."""
     integer_radius = int(radius)
     scale = 1 << 24
     window_weight = math.floor(scale / (radius * 2 + 1))
@@ -97,29 +97,29 @@ def _horizontal_extended_box_blur(image, radius):
     )
     far_left = padded[..., :width]
     far_right = padded[..., 2 * integer_radius + 2 : 2 * integer_radius + 2 + width]
-    return (central * window_weight + (far_left + far_right) * far_weight) / scale
+    bulk = central * window_weight + (far_left + far_right) * far_weight
+    return (bulk + (1 << 23)) >> 24
 
 
 def gaussian_blur_like_pillow(mask, radius, passes=3):
-    """Approximate Pillow GaussianBlur on-device without PIL/CPU round-trips.
+    """Reproduce Pillow GaussianBlur on-device without PIL/CPU round-trips.
 
-    Pillow implements GaussianBlur as three fractional extended box passes in
-    each direction. Quantizing between passes preserves its 8-bit mask behavior.
+    Pillow implements GaussianBlur as fractional extended box passes using
+    24-bit fixed-point weights. Keeping the intermediate mask as integer uint8
+    values preserves Pillow's rounding exactly instead of accumulating small
+    float errors at large blur radii.
     """
     if radius <= 0:
         return mask
 
     box_radius = _pillow_gaussian_box_radius(radius, passes)
     # tensor2pil truncates the original float mask to an 8-bit L image.
-    work = torch.floor(mask.clamp(0.0, 1.0) * 255.0) / 255.0
-    work = work.unsqueeze(1)
+    work = torch.floor(mask.clamp(0.0, 1.0) * 255.0).to(torch.int64).unsqueeze(1)
 
     for _ in range(passes):
         work = _horizontal_extended_box_blur(work, box_radius)
-        work = torch.round(work.clamp(0.0, 1.0) * 255.0) / 255.0
     work = work.transpose(-2, -1)
     for _ in range(passes):
         work = _horizontal_extended_box_blur(work, box_radius)
-        work = torch.round(work.clamp(0.0, 1.0) * 255.0) / 255.0
 
-    return work.transpose(-2, -1).squeeze(1)
+    return work.transpose(-2, -1).squeeze(1).to(torch.float32) / 255.0

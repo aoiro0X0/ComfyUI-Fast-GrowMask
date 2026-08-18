@@ -1072,7 +1072,7 @@ Drop-in, on-device version of Grow Mask With Blur.
 - Keeps the original inputs, outputs, and parameter meanings.
 - Batches mask processing instead of looping over frames.
 - Uses an exact fast square morphology path when tapered_corners is false.
-- Reproduces Pillow's three-box Gaussian blur without PIL/CPU round-trips.
+- Reproduces Pillow's fixed-point three-box Gaussian blur exactly without PIL/CPU round-trips.
 - fill_holes still uses SciPy on CPU to preserve the original behavior.
 """
 
