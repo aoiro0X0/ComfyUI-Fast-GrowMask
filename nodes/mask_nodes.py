@@ -17,6 +17,7 @@ from nodes import MAX_RESOLUTION
 import folder_paths
 
 from ..utility.utility import tensor2pil, pil2tensor
+from ..utility.fast_mask import expand_mask_batch, gaussian_blur_like_pillow
 
 script_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 main_device = model_management.get_torch_device()
@@ -1059,6 +1060,67 @@ class GrowMaskWithBlur:
             return (blurred, 1.0 - blurred)
         else:
             return (torch.stack(out, dim=0), 1.0 - torch.stack(out, dim=0),)
+
+class GrowMaskWithBlurFast(GrowMaskWithBlur):
+    CATEGORY = "Fast Grow Mask/masking"
+    RETURN_TYPES = ("MASK", "MASK",)
+    RETURN_NAMES = ("mask", "mask_inverted",)
+    FUNCTION = "expand_mask_fast"
+    DESCRIPTION = """
+# GrowMaskWithBlurFast
+Drop-in, on-device version of Grow Mask With Blur.
+- Keeps the original inputs, outputs, and parameter meanings.
+- Batches mask processing instead of looping over frames.
+- Uses an exact fast square morphology path when tapered_corners is false.
+- Reproduces Pillow's three-box Gaussian blur without PIL/CPU round-trips.
+- fill_holes still uses SciPy on CPU to preserve the original behavior.
+"""
+
+    def expand_mask_fast(self, mask, expand, tapered_corners, flip_input, blur_radius, incremental_expandrate, lerp_alpha, decay_factor, fill_holes=False):
+        alpha = lerp_alpha
+        decay = decay_factor
+        device_mask = mask.reshape((-1, mask.shape[-2], mask.shape[-1])).to(
+            device=main_device, dtype=torch.float32
+        )
+        if flip_input:
+            device_mask = 1.0 - device_mask
+
+        expand_amounts = []
+        current_expand = expand
+        for _ in range(device_mask.shape[0]):
+            expand_amounts.append(round(current_expand))
+            if current_expand < 0:
+                current_expand -= abs(incremental_expandrate)
+            else:
+                current_expand += abs(incremental_expandrate)
+
+        output = expand_mask_batch(device_mask, expand_amounts, tapered_corners)
+
+        if fill_holes:
+            binary_masks = (output > 0).cpu().numpy()
+            filled_masks = np.stack(
+                [scipy.ndimage.binary_fill_holes(frame) for frame in binary_masks]
+            ).astype(np.float32)
+            output = torch.from_numpy(filled_masks).to(device_mask.device)
+
+        if alpha < 1.0 or decay < 1.0:
+            frames = []
+            previous_output = None
+            for frame in output:
+                if alpha < 1.0 and previous_output is not None:
+                    frame = alpha * frame + (1 - alpha) * previous_output
+                if decay < 1.0 and previous_output is not None:
+                    frame = frame + decay * previous_output
+                    frame = frame / frame.max()
+                previous_output = frame
+                frames.append(frame)
+            output = torch.stack(frames, dim=0)
+
+        if blur_radius != 0:
+            output = gaussian_blur_like_pillow(output, blur_radius)
+
+        output = output.cpu()
+        return (output, 1.0 - output)
         
 class MaskBatchMulti:
     @classmethod

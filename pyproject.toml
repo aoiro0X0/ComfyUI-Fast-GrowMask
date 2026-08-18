@@ -1,15 +1,15 @@
 [project]
-name = "comfyui-kjnodes"
-description = "Various quality of life -nodes for ComfyUI, mostly just visual stuff to improve usability."
-version = "1.5.0"
+name = "comfyui-fast-grow-mask"
+description = "GPU-accelerated Grow Mask With Blur compatibility fork for ComfyUI."
+version = "0.1.0"
 license = {file = "LICENSE"}
 dependencies = ["pillow>=10.3.0", "color-matcher", "matplotlib"]
 
 [project.urls]
-Repository = "https://github.com/kijai/ComfyUI-KJNodes"
+Repository = "https://github.com/aoiro0X0/ComfyUI-Fast-GrowMask"
 #  Used by Comfy Registry https://comfyregistry.org
 
 [tool.comfy]
-PublisherId = "kijai"
-DisplayName = "ComfyUI-KJNodes"
+PublisherId = "aoiro0X0"
+DisplayName = "ComfyUI Fast Grow Mask"
 Icon = "https://avatars.githubusercontent.com/u/40791699"

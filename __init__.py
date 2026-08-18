@@ -61,7 +61,7 @@ from .nodes.mask_nodes import (
     BatchCLIPSeg, DownloadAndLoadCLIPSeg, CreateTextMask, ColorToMask, CreateFluidMask,
     CreateAudioMask, CreateGradientMask, CreateFadeMask, CreateFadeMaskAdvanced,
     CreateMagicMask, CreateShapeMask, CreateVoronoiMask, GetMaskSizeAndCount,
-    GrowMaskWithBlur, MaskBatchMulti, OffsetMask, RoundMask, ResizeMask, RemapMaskRange,
+    GrowMaskWithBlur, GrowMaskWithBlurFast, MaskBatchMulti, OffsetMask, RoundMask, ResizeMask, RemapMaskRange,
     SeparateMasks, ConsolidateMasksKJ, DrawMaskOnImage, BlockifyMask,
 )
 from .nodes.model_optimization_nodes import (
@@ -117,6 +117,7 @@ NODE_CONFIG = {
     "CreateMagicMask": {"class": CreateMagicMask, "name": "Create Magic Mask"},
     "GetMaskSizeAndCount": {"class": GetMaskSizeAndCount, "name": "Get Mask Size & Count"},
     "GrowMaskWithBlur": {"class": GrowMaskWithBlur, "name": "Grow Mask With Blur"},
+    "GrowMaskWithBlurFast": {"class": GrowMaskWithBlurFast, "name": "Grow Mask With Blur (Fast)"},
     "MaskBatchMulti": {"class": MaskBatchMulti, "name": "Mask Batch Multi"},
     "OffsetMask": {"class": OffsetMask, "name": "Offset Mask"},
     "RemapMaskRange": {"class": RemapMaskRange, "name": "Remap Mask Range"},

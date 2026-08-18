@@ -1,16 +1,53 @@
 
-# KJNodes for ComfyUI
+# ComfyUI Fast Grow Mask
+
+An optimized fork of [kijai/ComfyUI-KJNodes](https://github.com/kijai/ComfyUI-KJNodes)
+focused on accelerating large mask expansion and blur workloads.
+
+## Fast Grow Mask node
+
+`Grow Mask With Blur (Fast)` keeps the same inputs, outputs, and parameter meanings
+as the original `Grow Mask With Blur`, so existing values such as `expand=200` and
+`blur_radius=100` can be copied without conversion.
+
+The fast node:
+
+- batches all mask frames on the active ComfyUI device;
+- replaces repeated square dilation/erosion with separable max-pooling when
+  `tapered_corners=false`;
+- reproduces Pillow's three-box Gaussian approximation on-device without
+  per-frame PIL conversions or CPU round-trips;
+- preserves the original SciPy `fill_holes` behavior as a compatibility path.
+
+The primary deployment target is ComfyUI on Windows with an NVIDIA CUDA GPU.
+Windows CI verifies the platform-neutral algorithm code; final throughput should
+be measured in the target workflow because GPU model, frame batch size, and the
+`fill_holes` setting materially affect runtime.
+
+Install this fork **instead of**, not alongside, the upstream KJNodes folder because
+both packages contain the same original node identifiers:
+
+```bash
+cd ComfyUI/custom_nodes
+git clone https://github.com/aoiro0X0/ComfyUI-Fast-GrowMask.git
+```
+
+Then replace each `Grow Mask With Blur` node with `Grow Mask With Blur (Fast)` and
+copy the original values unchanged. Other nodes from the upstream project remain
+available in this compatibility fork.
+
+## Upstream project
 
 At this point pretty random collection of utility, model optimization and QoL nodes, while keeping dependencies at minimum.
 
 Documentation is mostly in the node descriptions and tooltips.
 
-# Installation
+# Original installation notes
 1. Clone this repo into `custom_nodes` folder.
 2. Install dependencies: `pip install -r requirements.txt`
    or if you use the portable install, run this in ComfyUI_windows_portable -folder:
 
-  `python_embeded\python.exe -m pip install -r ComfyUI\custom_nodes\ComfyUI-KJNodes\requirements.txt`
+  `python_embeded\python.exe -m pip install -r ComfyUI\custom_nodes\ComfyUI-Fast-GrowMask\requirements.txt`
 
 # JS extensions:
 
@@ -81,4 +118,3 @@ Complete (backwards compatible as far as I'm aware currently) rewrite of Set/Get
 
 
 ---
-
