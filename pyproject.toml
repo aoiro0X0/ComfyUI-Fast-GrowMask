@@ -1,7 +1,7 @@
 [project]
 name = "comfyui-fast-grow-mask"
 description = "CPU-optimized, pixel-compatible Grow Mask With Blur fork for ComfyUI."
-version = "0.1.1"
+version = "0.1.2"
 license = {file = "LICENSE"}
 dependencies = ["pillow>=10.3.0", "color-matcher", "matplotlib"]
 
