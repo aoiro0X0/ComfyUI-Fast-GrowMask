@@ -1209,7 +1209,7 @@ is repeated for all channels, and the alpha as a mask.
         green = image[:, :, :, 1:2] # Green channel
         blue = image[:, :, :, 2:3] # Blue channel
         if image.shape[3] == 4:
-            alpha = image[:, :, :, 4] # Alpha channel
+            alpha = image[:, :, :, 3] # Alpha channel
         else:
             alpha = torch.zeros(image.shape[0], image.shape[1], image.shape[2], device=image.device)
 
@@ -5161,4 +5161,3 @@ class PreviewImageOrMask(io.ComfyNode):
         if input.ndim == 3:
             return io.NodeOutput(ui=ui.PreviewMask(input, cls=cls))
         return io.NodeOutput(ui=ui.PreviewImage(input, cls=cls))
-
