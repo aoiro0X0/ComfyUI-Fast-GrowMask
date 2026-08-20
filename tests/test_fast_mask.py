@@ -5,7 +5,11 @@ import torch
 import torch.nn.functional as F
 from PIL import Image, ImageFilter
 
-from utility.fast_mask import expand_mask_batch, gaussian_blur_like_pillow
+from utility.fast_mask import (
+    expand_mask_batch,
+    gaussian_blur_like_pillow,
+    gaussian_blur_with_pillow_in_place,
+)
 
 
 class FastMaskTests(unittest.TestCase):
@@ -84,6 +88,22 @@ class FastMaskTests(unittest.TestCase):
                     )
                 expected = torch.stack(expected_frames)
                 self.assertTrue(torch.equal(actual, expected))
+
+    def test_cpu_low_memory_blur_is_pixel_exact_and_in_place_at_2048(self):
+        sample = torch.zeros(1, 2048, 2048)
+        sample[:, 512:1536, 640:1408] = 1
+        storage_pointer = sample.data_ptr()
+
+        actual = gaussian_blur_with_pillow_in_place(sample, 64)
+        expected_source = np.zeros((2048, 2048), dtype=np.uint8)
+        expected_source[512:1536, 640:1408] = 255
+        expected_image = Image.fromarray(expected_source).filter(
+            ImageFilter.GaussianBlur(64)
+        )
+        expected = torch.from_numpy(np.asarray(expected_image).copy()).float() / 255
+
+        self.assertEqual(actual.data_ptr(), storage_pointer)
+        self.assertTrue(torch.equal(actual[0], expected))
 
 
 if __name__ == "__main__":

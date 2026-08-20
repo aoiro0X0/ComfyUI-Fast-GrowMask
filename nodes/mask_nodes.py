@@ -17,7 +17,11 @@ from nodes import MAX_RESOLUTION
 import folder_paths
 
 from ..utility.utility import tensor2pil, pil2tensor
-from ..utility.fast_mask import expand_mask_batch, gaussian_blur_like_pillow
+from ..utility.fast_mask import (
+    expand_mask_batch,
+    gaussian_blur_like_pillow,
+    gaussian_blur_with_pillow_in_place,
+)
 
 script_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 main_device = model_management.get_torch_device()
@@ -1072,7 +1076,8 @@ Drop-in, on-device version of Grow Mask With Blur.
 - Keeps the original inputs, outputs, and parameter meanings.
 - Batches mask processing instead of looping over frames.
 - Uses an exact fast square morphology path when tapered_corners is false.
-- Reproduces Pillow's fixed-point three-box Gaussian blur exactly without PIL/CPU round-trips.
+- Uses the original pixel-exact Pillow blur one frame at a time on CPU to bound memory use.
+- Keeps the batched on-device fixed-point blur path for accelerator devices.
 - fill_holes still uses SciPy on CPU to preserve the original behavior.
 """
 
@@ -1097,11 +1102,20 @@ Drop-in, on-device version of Grow Mask With Blur.
         output = expand_mask_batch(device_mask, expand_amounts, tapered_corners)
 
         if fill_holes:
-            binary_masks = (output > 0).cpu().numpy()
-            filled_masks = np.stack(
-                [scipy.ndimage.binary_fill_holes(frame) for frame in binary_masks]
-            ).astype(np.float32)
-            output = torch.from_numpy(filled_masks).to(device_mask.device)
+            if output.device.type == "cpu":
+                for frame in output:
+                    filled = scipy.ndimage.binary_fill_holes(
+                        (frame > 0).numpy()
+                    ).astype(np.float32)
+                    frame.copy_(torch.from_numpy(filled))
+            else:
+                filled_frames = []
+                for frame in output:
+                    filled = scipy.ndimage.binary_fill_holes(
+                        (frame > 0).cpu().numpy()
+                    ).astype(np.float32)
+                    filled_frames.append(torch.from_numpy(filled))
+                output = torch.stack(filled_frames).to(device_mask.device)
 
         if alpha < 1.0 or decay < 1.0:
             frames = []
@@ -1117,7 +1131,10 @@ Drop-in, on-device version of Grow Mask With Blur.
             output = torch.stack(frames, dim=0)
 
         if blur_radius != 0:
-            output = gaussian_blur_like_pillow(output, blur_radius)
+            if output.device.type == "cpu":
+                output = gaussian_blur_with_pillow_in_place(output, blur_radius)
+            else:
+                output = gaussian_blur_like_pillow(output, blur_radius)
 
         output = output.cpu()
         return (output, 1.0 - output)
