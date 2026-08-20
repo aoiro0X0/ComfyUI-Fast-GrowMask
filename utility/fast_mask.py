@@ -1,7 +1,9 @@
 import math
 
+import numpy as np
 import torch
 import torch.nn.functional as F
+from PIL import Image, ImageFilter
 
 
 def _pool_extrema(mask, radius, dilate, tapered_corners):
@@ -123,3 +125,24 @@ def gaussian_blur_like_pillow(mask, radius, passes=3):
         work = _horizontal_extended_box_blur(work, box_radius)
 
     return work.transpose(-2, -1).squeeze(1).to(torch.float32) / 255.0
+
+
+def gaussian_blur_with_pillow_in_place(mask, radius):
+    """Blur a CPU BHW mask one frame at a time with bounded memory use.
+
+    This is the exact path used by the original node. Replacing each frame in
+    the existing tensor avoids a second full-batch output and the much larger
+    int64 temporary tensors used by the on-device implementation.
+    """
+    if radius <= 0:
+        return mask
+    if mask.device.type != "cpu":
+        raise ValueError("gaussian_blur_with_pillow_in_place requires a CPU mask")
+
+    for frame in mask:
+        image = Image.fromarray(
+            np.clip(frame.detach().numpy() * 255.0, 0, 255).astype(np.uint8)
+        )
+        blurred = np.asarray(image.filter(ImageFilter.GaussianBlur(radius))).copy()
+        frame.copy_(torch.from_numpy(blurred).to(dtype=frame.dtype).div_(255.0))
+    return mask
